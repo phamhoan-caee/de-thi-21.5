@@ -189,6 +189,9 @@
             <div style="text-align: center; margin-bottom: 20px;">
                 <div style="font-size: 16px; color: var(--caee-blue); font-weight: bold;">TRƯỜNG CĐ CƠ ĐIỆN NÔNG NGHIỆP VÀ MÔI TRƯỜNG</div>
                 <div style="font-size: 18px; color: #d32f2f; font-weight: 900; margin-top: 5px; text-transform: uppercase;">KHOA MÁY THI CÔNG</div>
+                <div style="margin-top: 15px; padding: 10px; background: rgba(0, 51, 153, 0.08); border-radius: 8px; font-size: 0.95rem; color: #333; font-weight: 600; line-height: 1.4; border-left: 4px solid var(--btn-orange); text-align: left;">
+                    Chào mừng bạn đến với hệ thống trắc nghiệm của Khoa Máy thi công, bạn hãy nhập các thông tin và vào để thi.
+                </div>
             </div>
             <label style="font-weight: bold; font-size: 0.9rem;">NGHỀ ĐÀO TẠO:</label>
             <select id="jobType" class="form-control" style="background: #fff8e1; border: 2px solid orange;" onchange="preloadQuestions()">
@@ -201,7 +204,7 @@
             <input type="text" id="studentName" placeholder="HỌ VÀ TÊN HỌC VIÊN" class="form-control" style="text-transform: uppercase;">
             <input type="text" id="studentDOB" placeholder="Ngày sinh: (VD: 12/4/2000)" class="form-control">
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <input type="text" id="khoaThi" value="Tháng 8/2026" class="form-control" style="flex: 1.5; background: #eee; font-weight: bold;" readonly>
+                <input type="text" id="khoaThi" value="Tháng 6/2026" class="form-control" style="flex: 1.5; background: #eee; font-weight: bold;" readonly>
                 <input type="password" id="maThi" placeholder="Mã thi" class="form-control" style="flex: 1;">
             </div>
             <div style="display:flex; align-items:center; margin: 15px 0; justify-content: center; gap:10px; background: rgba(227, 242, 253, 0.8); padding: 10px; border-radius: 10px;">
@@ -270,7 +273,8 @@
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxEqaN1nbwUi9oEPKaUfPQSUCdt1TBYPPcL9t8gLbQelU6nCTxbGBnk8cpRfa1Q5QTMvw/exec";
     
     let allQuestions = [], selectedQuestions = [], studentAnswers = [];
-    let currentQuestionIndex = 0, timeLeft = 1200, timerInterval, isSubmitted = false, cheatCount = 0;
+    let currentQuestionIndex = 0, timerInterval, isSubmitted = false, cheatCount = 0;
+    let timeLeft = 1200; // 20 phút mặc định cho phòng thi chính thức
     const synth = window.speechSynthesis;
     let isVoiceEnabled = true;
 
@@ -294,6 +298,7 @@
         }
     }
 
+    // Đọc trọn bộ câu hỏi và đáp án khi chuyển câu (Tiếp theo / Lùi lại / Đầu bài)
     function aiSpeakQuestion(qObj) {
         if (!isVoiceEnabled) return;
         stopSpeaking(); 
@@ -312,11 +317,12 @@
         synth.speak(utter);
     }
 
+    // CHỈ đọc giải thích của đáp án đã chọn ở chế độ ôn tập (KHÔNG đọc lại câu hỏi)
     function aiSpeakExplanation(qObj) {
         if (!document.getElementById('modeToggle').checked || !isVoiceEnabled) return;
         stopSpeaking();
         
-        const textToRead = `Đáp án đúng là ${qObj.answer}. Giải thích: ${qObj.explanation}`;
+        const textToRead = `Giải thích đáp án: ${qObj.explanation}`;
         const utter = new SpeechSynthesisUtterance(textToRead);
         utter.lang = 'vi-VN';
         utter.rate = 1.1;
@@ -385,16 +391,22 @@
 
     function startQuiz() {
         document.getElementById('display-name').innerText = document.getElementById('studentName').value.toUpperCase();
-        selectedQuestions = allQuestions.sort(() => 0.5 - Math.random()).slice(0, 25); // Đã chuyển sang lấy ngẫu nhiên 25 câu
+        selectedQuestions = allQuestions.sort(() => 0.5 - Math.random()).slice(0, 25); 
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('ai-container').style.display = 'flex';
         document.getElementById('timer').style.display = 'block';
         document.getElementById('quiz-screen').style.display = 'grid';
-        showQuestion(0);
+        
+        // Tạo khoảng trễ nhỏ để vượt qua bộ chặn Autoplay của trình duyệt và đọc ngay Câu 1
+        setTimeout(() => {
+            showQuestion(0, true);
+        }, 150);
+        
         startTimer();
     }
 
-    function showQuestion(idx) {
+    // Thêm tham số `triggerFullRead` để quản lý việc có đọc lại toàn bộ câu hỏi hay không
+    function showQuestion(idx, triggerFullRead = true) {
         stopSpeaking(); 
         currentQuestionIndex = idx;
         const q = selectedQuestions[idx];
@@ -415,13 +427,17 @@
                  </div>`;
         
         html += `<div style="display:flex; justify-content:space-between; margin-top:20px; gap:15px;">
-                    <button class="btn-start" style="background:var(--btn-blue); flex:1;" onclick="showQuestion(${idx-1})" ${idx===0?'disabled':''}>Lùi lại</button>
-                    <button class="btn-start" style="background:var(--btn-blue); flex:1;" onclick="showQuestion(${idx+1})" ${idx===24?'disabled':''}>Tiếp theo</button>
-                 </div>`; // Đã khóa nút bấm Tiếp theo tại câu số 24 (tức Câu 25)
+                    <button class="btn-start" style="background:var(--btn-blue); flex:1;" onclick="showQuestion(${idx-1}, true)" ${idx===0?'disabled':''}>Lùi lại</button>
+                    <button class="btn-start" style="background:var(--btn-blue); flex:1;" onclick="showQuestion(${idx+1}, true)" ${idx===24?'disabled':''}>Tiếp theo</button>
+                 </div>`; 
         document.getElementById('quiz-content').innerHTML = html;
         renderGrid();
         updateProgressBar();
-        aiSpeakQuestion(q);
+        
+        // Chỉ đọc toàn bộ câu hỏi khi chuyển câu mới, không đọc khi vừa click chọn đáp án
+        if (triggerFullRead) {
+            aiSpeakQuestion(q);
+        }
     }
 
     function selectAns(qIdx, ans) {
@@ -431,7 +447,10 @@
         if(findIndex > -1) studentAnswers[findIndex].selected = ans;
         else studentAnswers.push({qIndex: qIdx, selected: ans});
         
-        showQuestion(qIdx);
+        // Truyền false để KHÔNG phát lại tiếng đọc câu hỏi
+        showQuestion(qIdx, false);
+        
+        // CHỈ đọc giải thích đáp án
         if(document.getElementById('modeToggle').checked) {
             aiSpeakExplanation(selectedQuestions[qIdx]);
         }
@@ -439,7 +458,7 @@
 
     function updateProgressBar() {
         const completed = studentAnswers.length;
-        document.getElementById('progress-fill').style.width = (completed / 25 * 100) + "%"; // Đổi tỉ lệ hiển thị sang 25 câu
+        document.getElementById('progress-fill').style.width = (completed / 25 * 100) + "%"; 
         document.getElementById('progress-text').innerText = completed + "/25";
     }
 
@@ -449,7 +468,7 @@
             const hasAns = studentAnswers.some(a => a.qIndex === i);
             const active = i === currentQuestionIndex ? 'border:3px solid var(--btn-orange);' : '';
             const bg = hasAns ? 'background:var(--caee-blue); color:white;' : 'background:rgba(0,0,0,0.05);';
-            grid.innerHTML += `<div onclick="showQuestion(${i})" style="height:40px; display:flex; justify-content:center; align-items:center; border-radius:8px; cursor:pointer; font-weight:bold; ${bg} ${active}">${i+1}</div>`;
+            grid.innerHTML += `<div onclick="showQuestion(${i}, true)" style="height:40px; display:flex; justify-content:center; align-items:center; border-radius:8px; cursor:pointer; font-weight:bold; ${bg} ${active}">${i+1}</div>`;
         });
     }
 
@@ -481,9 +500,7 @@
             if(ans && ['A','B','C','D'][q.options.indexOf(ans.selected)] === q.answer) score++;
         });
 
-        // Chuyển đổi công thức tính điểm sang hệ 25 câu (mỗi câu 0.4 điểm)
         const score10 = parseFloat((score * 0.4).toFixed(1));
-        // Điều kiện đạt chuyển thành >= 8.4 điểm (Tương đương chuẩn cũ là 25/30 câu)
         const status = score10 >= 8.4 ? "ĐẠT" : "KHÔNG ĐẠT";
         const jobName = document.getElementById('jobType').options[document.getElementById('jobType').selectedIndex].text;
         const isOnTap = document.getElementById('modeToggle').checked;
@@ -509,7 +526,7 @@
         formData.append('maThi', document.getElementById('maThi').value.trim());
         formData.append('name', document.getElementById('studentName').value.toUpperCase());
         formData.append('birthDate', document.getElementById('studentDOB').value);
-        formData.append('score', score + "/25"); // Gửi số câu đúng trên 25 về Sheets
+        formData.append('score', score + "/25"); 
         formData.append('status', status);
         formData.append('viPham', cheatCount);
         formData.append('ngheName', isOnTap ? jobName + " (ÔN TẬP)" : jobName);
